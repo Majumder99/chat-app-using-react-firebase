@@ -1,21 +1,105 @@
-import React from "react";
-
+import React, { useContext, useState } from "react";
+import {
+  collection,
+  query,
+  where,
+  getDocs,
+  getDoc,
+  setDoc,
+  updateDoc,
+  doc,
+  serverTimestamp,
+} from "firebase/firestore";
+import { db } from "../firebase";
+import { AuthContext } from "../context/AuthContext";
 const Search = () => {
+  const { currentUser } = useContext(AuthContext);
+  const [username, setUsername] = useState("");
+  const [user, setUser] = useState(null);
+  const [err, setErr] = useState(false);
+  const handleSearch = async () => {
+    const q = query(
+      collection(db, "users"),
+      where("displayName", "==", username)
+    );
+
+    try {
+      const querySnapshot = await getDocs(q);
+      querySnapshot.forEach((doc) => {
+        // doc.data() is never undefined for query doc snapshots
+        // console.log(doc.id, " => ", doc.data());
+        setUser(doc.data());
+      });
+    } catch (error) {
+      setErr(true);
+      console.log(error);
+    }
+  };
+  const handlekey = (e) => {
+    e.code === "Enter" && handleSearch();
+    // console.log(e.code);
+  };
+  const handleSelect = async () => {
+    //check whether the group(chats in firestore) exists, if not create
+    const combinedId =
+      currentUser.uid > user.uid
+        ? currentUser.uid + user.uid
+        : user.uid + currentUser.uid;
+    try {
+      const res = await getDoc(doc(db, "chats", combinedId));
+
+      if (!res.exists()) {
+        //create a chat in chats collection
+        await setDoc(doc(db, "chats", combinedId), { messages: [] });
+
+        //create user chats
+        await updateDoc(doc(db, "userChats", currentUser.uid), {
+          [combinedId + ".userInfo"]: {
+            uid: user.uid,
+            displayName: user.displayName,
+            photoURL: user.photoURL,
+          },
+          [combinedId + ".date"]: serverTimestamp(),
+        });
+
+        await updateDoc(doc(db, "userChats", user.uid), {
+          [combinedId + ".userInfo"]: {
+            uid: currentUser.uid,
+            displayName: currentUser.displayName,
+            photoURL: currentUser.photoURL,
+          },
+          [combinedId + ".date"]: serverTimestamp(),
+        });
+      }
+    } catch (err) {
+      setErr(true);
+      console.log(err);
+    }
+
+    setUser(null);
+    setUsername("");
+  };
   return (
     <>
       <div className="search">
         <div className="searchForm">
-          <input type="text" placeholder="find an user" />
-        </div>
-        <div className="userChat">
-          <img
-            src="https://images.unsplash.com/photo-1494790108377-be9c29b29330?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=387&q=80"
-            alt=""
+          <input
+            type="text"
+            placeholder="find an user"
+            onKeyDown={handlekey}
+            onChange={(e) => setUsername(e.target.value)}
+            value={username}
           />
-          <div className="userChatInfo">
-            <span>Jane</span>
-          </div>
         </div>
+        {err && <span>User not found</span>}
+        {user && (
+          <div className="userChat" onClick={handleSelect}>
+            <img src={user.photoURL} alt="" />
+            <div className="userChatInfo">
+              <span>{user.displayName}</span>
+            </div>
+          </div>
+        )}
       </div>
     </>
   );

@@ -4,7 +4,7 @@ import { auth, storage, db } from "../firebase";
 import React, { useState } from "react";
 import Add from "../img/addAvatar.png";
 import { doc, setDoc } from "firebase/firestore";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 
 const Register = () => {
   const [err, setErr] = useState(false);
@@ -66,6 +66,7 @@ const Register = () => {
               displayName,
               email,
               photoURL: downloadURL,
+              password,
             });
 
             await setDoc(doc(db, "userChats", res.user.uid), {});
@@ -95,7 +96,9 @@ const Register = () => {
             <button>Sign Up</button>
             {err && <span>Something Went Wrong</span>}
           </form>
-          <p>You already have an account? Login</p>
+          <p>
+            You already have an account? <Link to="/login">Login</Link>
+          </p>
         </div>
       </div>
     </>
